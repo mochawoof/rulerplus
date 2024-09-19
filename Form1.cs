@@ -8,8 +8,9 @@ namespace rulerplus
         [DllImport("user32.dll")]
         public static extern uint GetDpiForSystem();
 
-        private string VERSION = "1.1.0";
+        private string VERSION = "1.1.1";
         private int TEXT_OFFSET_CONSTANT = 16;
+        private int TEXT_OFFSET_BACKGROUND_PADDING = 5;
 
         private Graphics graphics;
         private Font font;
@@ -75,8 +76,9 @@ namespace rulerplus
                     graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - submarker_height, (int)(y + (j * Math.Round((double)adjusted_ppi / 10))), submarker_height, submarker_width));
                 }
 
-                graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - text_offset - 5, y - TEXT_OFFSET_CONSTANT - 5, text_offset - marker_height + 5, y));
-                graphics.DrawString((i * unit_multiplier).ToString(), font, brush, new Point(ClientRectangle.Width - text_offset - 5, y - TEXT_OFFSET_CONSTANT - 5));
+                // Background in case text is too long to fit
+                graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - text_offset - TEXT_OFFSET_BACKGROUND_PADDING, y - TEXT_OFFSET_CONSTANT - TEXT_OFFSET_BACKGROUND_PADDING, text_offset - marker_height + TEXT_OFFSET_BACKGROUND_PADDING, TEXT_OFFSET_CONSTANT + TEXT_OFFSET_BACKGROUND_PADDING));
+                graphics.DrawString((i * unit_multiplier).ToString(), font, brush, new Point(ClientRectangle.Width - text_offset - TEXT_OFFSET_BACKGROUND_PADDING, y - TEXT_OFFSET_CONSTANT - TEXT_OFFSET_BACKGROUND_PADDING));
             }
         }
 
@@ -92,7 +94,7 @@ namespace rulerplus
             graphics.DrawLine(new Pen(background_brush, marker_width * 2), new Point(0, 0), new Point(width, height));
             graphics.DrawLine(new Pen(brush, marker_width), new Point(0, 0), new Point(width, height));
 
-            graphics.FillRectangle(background_brush, new Rectangle((width / 2) + 10, (height / 2) - 20, TEXT_OFFSET_CONSTANT * (units_diagonal.ToString().Length), 22));
+            graphics.FillRectangle(background_brush, new Rectangle((width / 2) + 10, (height / 2) - 20, TEXT_OFFSET_CONSTANT * (units_diagonal.ToString().Length), TEXT_OFFSET_CONSTANT + 5));
             graphics.DrawString(units_diagonal.ToString(), font, brush, new Point((width / 2) + 10, (height / 2) - 20));
         }
 
