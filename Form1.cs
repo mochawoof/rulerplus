@@ -1,0 +1,158 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+namespace rulerplus
+{
+    public partial class Form1 : System.Windows.Forms.Form
+    {
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForSystem();
+
+        private Graphics graphics;
+        private Font font;
+        private SolidBrush background_brush;
+        private SolidBrush transparency_brush;
+        private SolidBrush brush;
+        private StringFormat draw_format;
+
+        private uint ppi;
+        private string[] measurements = new string[] { "in", "cm" };
+        private int current_measurement = Properties.Settings.Default.current_measurement;
+
+        public Form1()
+        {
+            InitializeComponent();
+            font = new Font("Courier New", 16);
+            background_brush = new SolidBrush(this.BackColor);
+            transparency_brush = new SolidBrush(this.TransparencyKey);
+            brush = new SolidBrush(this.ForeColor);
+            draw_format = new StringFormat();
+        }
+
+        private void draw_horizontal_markers(int adjusted_ppi, int marker_height, int marker_width, int submarker_height, int submarker_width)
+        {
+            int rect_width = ClientRectangle.Width;
+            int units = (int)Math.Ceiling((double)rect_width / adjusted_ppi);
+
+            graphics.FillRectangle(background_brush, new Rectangle(0, ClientRectangle.Height - marker_height, rect_width, marker_height));
+
+            for (int i = 0; i < units; i++)
+            {
+                int x = (int)(i * adjusted_ppi);
+                int text_offset = (i > 9) ? 32 : 20;
+                graphics.FillRectangle(brush, new Rectangle(x, ClientRectangle.Height - marker_height, marker_width, marker_height));
+
+
+                // Draw submarkers
+                for (int j = 0; j < 10; j++)
+                {
+                    graphics.FillRectangle(brush, new Rectangle((int)(x + (j * Math.Round((double)adjusted_ppi / 10))), ClientRectangle.Height - submarker_height, submarker_width, submarker_height));
+                }
+
+                graphics.DrawString(i.ToString(), font, brush, new Point(x - text_offset, ClientRectangle.Height - marker_height));
+            }
+        }
+
+        private void draw_vertical_markers(int adjusted_ppi, int marker_height, int marker_width, int submarker_height, int submarker_width)
+        {
+            int rect_height = ClientRectangle.Height;
+            int units_vertical = (int)Math.Ceiling((double)rect_height / adjusted_ppi);
+
+            graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - marker_height, 0, marker_height, ClientRectangle.Width));
+
+            for (int i = 0; i < units_vertical; i++)
+            {
+                int y = (int)(i * adjusted_ppi);
+                int text_offset = (i > 9) ? 32 : 20;
+                graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - marker_height, y, marker_height, marker_width));
+                // Draw submarkers
+                for (int j = 0; j < 10; j++)
+                {
+                    graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - submarker_height, (int)(y + (j * Math.Round((double)adjusted_ppi / 10))), submarker_height, submarker_width));
+                }
+
+                graphics.DrawString(i.ToString(), font, brush, new Point(ClientRectangle.Width - marker_height, y - text_offset));
+            }
+        }
+
+        private void draw_diagonal_marker(int adjusted_ppi, int marker_height, int marker_width)
+        {
+            int width = ClientRectangle.Width - marker_height;
+            int height = ClientRectangle.Height - marker_height;
+
+            double units_diagonal = Math.Round(Math.Sqrt(Math.Pow(width, 2) + Math.Pow(height, 2)) / adjusted_ppi, 2);
+
+            // Draw highlights before actual lines
+
+            graphics.DrawLine(new Pen(background_brush, marker_width * 2), new Point(0, 0), new Point(width, height));
+            graphics.DrawLine(new Pen(brush, marker_width), new Point(0, 0), new Point(width, height));
+
+            graphics.FillRectangle(background_brush, new Rectangle((width / 2) + 10, (height / 2) - 20, 16 * (units_diagonal.ToString().Length), 22));
+            graphics.DrawString(units_diagonal.ToString(), font, brush, new Point((width / 2) + 10, (height / 2) - 20));
+        }
+
+        private void draw()
+        {
+            graphics = this.CreateGraphics();
+
+            ppi = GetDpiForSystem();
+
+            // Fill background
+            graphics.FillRectangle(transparency_brush, new Rectangle(0, 0, ClientRectangle.Width, ClientRectangle.Height));
+
+            // Calculate ppi
+            int adjusted_ppi = (int)ppi;
+
+            if (measurements[current_measurement] == "cm")
+            {
+                adjusted_ppi = (int)Math.Round(ppi / 2.54);
+            }
+
+            int marker_height = 40;
+            int marker_width = 3;
+            int submarker_height = 20;
+            int submarker_width = 1;
+
+            draw_horizontal_markers(adjusted_ppi, marker_height, marker_width, submarker_height, submarker_width);
+
+            draw_vertical_markers(adjusted_ppi, marker_height, marker_width, submarker_height, submarker_width);
+
+            draw_diagonal_marker(adjusted_ppi, marker_height, marker_width);
+
+            // Cover overlapping markers
+            graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - marker_height, ClientRectangle.Height - marker_height, marker_height, marker_height));
+            graphics.DrawString(measurements[current_measurement], font, background_brush, new Point(ClientRectangle.Width - marker_height, ClientRectangle.Height - marker_height));
+
+            // Draw borders
+            graphics.FillRectangle(brush, new Rectangle(0, 0, ClientRectangle.Width - marker_height, 1));
+            graphics.FillRectangle(brush, new Rectangle(0, 0, 1, ClientRectangle.Height - marker_height));
+
+        }
+
+        private void Form1_Paint(object sender, PaintEventArgs e)
+        {
+            draw();
+        }
+
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            this.Invalidate();
+        }
+
+        private void Form1_Click(object sender, EventArgs e)
+        {
+            if (current_measurement == measurements.Length - 1)
+            {
+                current_measurement = 0;
+            }
+            else
+            {
+                current_measurement++;
+            }
+
+            Properties.Settings.Default.current_measurement = current_measurement;
+            Properties.Settings.Default.Save();
+            this.Invalidate();
+        }
+    }
+}
