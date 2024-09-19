@@ -8,7 +8,8 @@ namespace rulerplus
         [DllImport("user32.dll")]
         public static extern uint GetDpiForSystem();
 
-        private string VERSION = "1.0.0";
+        private string VERSION = "1.1.0";
+        private int TEXT_OFFSET_CONSTANT = 16;
 
         private Graphics graphics;
         private Font font;
@@ -17,8 +18,7 @@ namespace rulerplus
         private SolidBrush brush;
         private StringFormat draw_format;
 
-        private uint ppi;
-        private string[] measurements = new string[] { "in", "cm" };
+        private string[] measurements = new string[] { "in", "cm", "px" };
         private int current_measurement = Properties.Settings.Default.current_measurement;
 
         public Form1()
@@ -31,7 +31,7 @@ namespace rulerplus
             draw_format = new StringFormat();
         }
 
-        private void draw_horizontal_markers(int adjusted_ppi, int marker_height, int marker_width, int submarker_height, int submarker_width)
+        private void draw_horizontal_markers(int adjusted_ppi, int unit_multiplier, int marker_height, int marker_width, int submarker_height, int submarker_width)
         {
             int rect_width = ClientRectangle.Width;
             int units = (int)Math.Ceiling((double)rect_width / adjusted_ppi);
@@ -41,7 +41,8 @@ namespace rulerplus
             for (int i = 0; i < units; i++)
             {
                 int x = (int)(i * adjusted_ppi);
-                int text_offset = (i > 9) ? 32 : 20;
+                int text_offset = (TEXT_OFFSET_CONSTANT * (i * unit_multiplier).ToString().Length);
+
                 graphics.FillRectangle(brush, new Rectangle(x, ClientRectangle.Height - marker_height, marker_width, marker_height));
 
 
@@ -51,21 +52,22 @@ namespace rulerplus
                     graphics.FillRectangle(brush, new Rectangle((int)(x + (j * Math.Round((double)adjusted_ppi / 10))), ClientRectangle.Height - submarker_height, submarker_width, submarker_height));
                 }
 
-                graphics.DrawString(i.ToString(), font, brush, new Point(x - text_offset, ClientRectangle.Height - marker_height));
+                graphics.DrawString((i * unit_multiplier).ToString(), font, brush, new Point(x - text_offset, ClientRectangle.Height - marker_height));
             }
         }
 
-        private void draw_vertical_markers(int adjusted_ppi, int marker_height, int marker_width, int submarker_height, int submarker_width)
+        private void draw_vertical_markers(int adjusted_ppi, int unit_multiplier, int marker_height, int marker_width, int submarker_height, int submarker_width)
         {
             int rect_height = ClientRectangle.Height;
             int units_vertical = (int)Math.Ceiling((double)rect_height / adjusted_ppi);
 
-            graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - marker_height, 0, marker_height, ClientRectangle.Width));
+            graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - marker_height, 0, marker_height, rect_height));
 
             for (int i = 0; i < units_vertical; i++)
             {
                 int y = (int)(i * adjusted_ppi);
-                int text_offset = (i > 9) ? 32 : 20;
+                int text_offset = (TEXT_OFFSET_CONSTANT * (i * unit_multiplier).ToString().Length) + TEXT_OFFSET_CONSTANT;
+
                 graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - marker_height, y, marker_height, marker_width));
                 // Draw submarkers
                 for (int j = 0; j < 10; j++)
@@ -73,23 +75,24 @@ namespace rulerplus
                     graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - submarker_height, (int)(y + (j * Math.Round((double)adjusted_ppi / 10))), submarker_height, submarker_width));
                 }
 
-                graphics.DrawString(i.ToString(), font, brush, new Point(ClientRectangle.Width - marker_height, y - text_offset));
+                graphics.FillRectangle(background_brush, new Rectangle(ClientRectangle.Width - text_offset - 5, y - TEXT_OFFSET_CONSTANT - 5, text_offset - marker_height + 5, y));
+                graphics.DrawString((i * unit_multiplier).ToString(), font, brush, new Point(ClientRectangle.Width - text_offset - 5, y - TEXT_OFFSET_CONSTANT - 5));
             }
         }
 
-        private void draw_diagonal_marker(int adjusted_ppi, int marker_height, int marker_width)
+        private void draw_diagonal_marker(int adjusted_ppi, int unit_multiplier, int marker_height, int marker_width)
         {
             int width = ClientRectangle.Width - marker_height;
             int height = ClientRectangle.Height - marker_height;
 
-            double units_diagonal = Math.Round(Math.Sqrt(Math.Pow(width, 2) + Math.Pow(height, 2)) / adjusted_ppi, 2);
+            double units_diagonal = Math.Round((Math.Sqrt(Math.Pow(width, 2) + Math.Pow(height, 2)) / adjusted_ppi) * unit_multiplier, 2);
 
             // Draw highlights before actual lines
 
             graphics.DrawLine(new Pen(background_brush, marker_width * 2), new Point(0, 0), new Point(width, height));
             graphics.DrawLine(new Pen(brush, marker_width), new Point(0, 0), new Point(width, height));
 
-            graphics.FillRectangle(background_brush, new Rectangle((width / 2) + 10, (height / 2) - 20, 16 * (units_diagonal.ToString().Length), 22));
+            graphics.FillRectangle(background_brush, new Rectangle((width / 2) + 10, (height / 2) - 20, TEXT_OFFSET_CONSTANT * (units_diagonal.ToString().Length), 22));
             graphics.DrawString(units_diagonal.ToString(), font, brush, new Point((width / 2) + 10, (height / 2) - 20));
         }
 
@@ -97,17 +100,20 @@ namespace rulerplus
         {
             graphics = this.CreateGraphics();
 
-            ppi = GetDpiForSystem();
-
             // Fill background
             graphics.FillRectangle(transparency_brush, new Rectangle(0, 0, ClientRectangle.Width, ClientRectangle.Height));
 
             // Calculate ppi
-            int adjusted_ppi = (int)ppi;
+            int adjusted_ppi = (int) GetDpiForSystem();
+            int unit_multiplier = 1;
 
             if (measurements[current_measurement] == "cm")
             {
-                adjusted_ppi = (int)Math.Round(ppi / 2.54);
+                adjusted_ppi = (int)Math.Round(adjusted_ppi / 2.54);
+            } else if (measurements[current_measurement] == "px")
+            {
+                adjusted_ppi = 100;
+                unit_multiplier = 100;
             }
 
             int marker_height = 40;
@@ -115,11 +121,11 @@ namespace rulerplus
             int submarker_height = 20;
             int submarker_width = 1;
 
-            draw_horizontal_markers(adjusted_ppi, marker_height, marker_width, submarker_height, submarker_width);
+            draw_vertical_markers(adjusted_ppi, unit_multiplier, marker_height, marker_width, submarker_height, submarker_width);
 
-            draw_vertical_markers(adjusted_ppi, marker_height, marker_width, submarker_height, submarker_width);
+            draw_horizontal_markers(adjusted_ppi, unit_multiplier, marker_height, marker_width, submarker_height, submarker_width);
 
-            draw_diagonal_marker(adjusted_ppi, marker_height, marker_width);
+            draw_diagonal_marker(adjusted_ppi, unit_multiplier, marker_height, marker_width);
 
             // Cover overlapping markers
             graphics.FillRectangle(brush, new Rectangle(ClientRectangle.Width - marker_height, ClientRectangle.Height - marker_height, marker_height, marker_height));
