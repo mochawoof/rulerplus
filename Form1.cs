@@ -8,6 +8,8 @@ namespace rulerplus
         [DllImport("user32.dll")]
         public static extern uint GetDpiForSystem();
 
+        private string VERSION = "1.0.0";
+
         private Graphics graphics;
         private Font font;
         private SolidBrush background_brush;
