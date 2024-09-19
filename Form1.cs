@@ -8,7 +8,7 @@ namespace rulerplus
         [DllImport("user32.dll")]
         public static extern uint GetDpiForSystem();
 
-        private string VERSION = "1.1.1";
+        private string VERSION = "1.1.2";
         private int TEXT_OFFSET_CONSTANT = 16;
         private int TEXT_OFFSET_BACKGROUND_PADDING = 5;
 
@@ -25,6 +25,7 @@ namespace rulerplus
         public Form1()
         {
             InitializeComponent();
+            this.Text += " v" + VERSION;
             font = new Font("Courier New", 16);
             background_brush = new SolidBrush(this.BackColor);
             transparency_brush = new SolidBrush(this.TransparencyKey);
